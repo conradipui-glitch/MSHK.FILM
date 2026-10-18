@@ -1,0 +1,40 @@
+name: Build film-v2 preview
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'site-v2/**'
+      - '.github/workflows/build-film-v2-preview.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: site-v2/package-lock.json
+      - name: Install and build
+        run: |
+          cd site-v2
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Refresh preview folder only
+        run: |
+          mkdir -p docs/v2
+          find docs/v2 -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          cp -a site-v2/dist/. docs/v2/
+          touch docs/v2/.nojekyll
+      - name: Commit preview to main if changed
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/v2
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: refresh film-v2 preview'
+            git push
+          fi
